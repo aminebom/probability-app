@@ -1,5 +1,6 @@
 import streamlit as st
 import math
+import re
 
 # --- الدوال الرياضية الأساسية ---
 def C(n, p):
@@ -33,16 +34,13 @@ with st.sidebar.expander("إضافة لون جديد"):
 # عرض وتعديل الألوان الحالية
 st.sidebar.subheader("الألوان الحالية:")
 total_n = 0
-# قمنا بتغيير .items() إلى قائمة لنتجنب الخطأ
 current_items = list(st.session_state.box_items.items())
 
 for color, count in current_items:
     col1, col2 = st.sidebar.columns([3, 1])
-    # تحديث العدد مباشرة
     val = col1.number_input(f"{color}", min_value=0, value=count, key=f"input_{color}")
     st.session_state.box_items[color] = val
     total_n += val
-    # زر الحذف
     if col2.button("🗑️", key=f"del_{color}"):
         del st.session_state.box_items[color]
         st.rerun()
@@ -57,13 +55,9 @@ with col_a:
 with col_b:
     mode_display = st.selectbox("نوع السحب", ["في آن واحد", "على التوالي بدون إرجاع", "على التوالي مع الإرجاع"])
 
-# تحويل الاختيار لمنطق برمجي
-if mode_display == "في آن واحد":
-    mode, repl = "1", "no"
-elif mode_display == "على التوالي مع الإرجاع":
-    mode, repl = "2", "yes"
-else:
-    mode, repl = "2", "no"
+if mode_display == "في آن واحد": mode, repl = "1", "no"
+elif mode_display == "على التوالي مع الإرجاع": mode, repl = "2", "yes"
+else: mode, repl = "2", "no"
 
 question = st.text_input("اكتب سؤالك بالعربية (مثال: نفس اللون، بالضبط 1 Red)", placeholder="اكتب هنا...")
 
@@ -71,18 +65,15 @@ if st.button("⚡ احسب الآن", use_container_width=True):
     total_cases = 0
     favorable = 0
     
-    # 1. الحالات الكلية
     if mode == "1":
         total_cases = C(total_n, k)
     else:
         total_cases = (total_n ** k) if repl == "yes" else A(total_n, k)
     
-    # 2. الحالات الموافقة
     def get_fav(n, r):
         if mode == "1": return C(n, r)
         return (n ** r) if repl == "yes" else A(n, r)
 
-    # معالجة السؤال
     q_clean = question.lower()
     if "نفس" in q_clean:
         for color, count in st.session_state.box_items.items():
@@ -90,21 +81,15 @@ if st.button("⚡ احسب الآن", use_container_width=True):
     
     elif "بالضبط" in q_clean or any(c.lower() in q_clean for c in st.session_state.box_items):
         target = next((c for c in st.session_state.box_items if c.lower() in q_clean), None)
-        # استخراج أول رقم يظهر في السؤال
-        import re
         nums = re.findall(r'\d+', q_clean)
         x = int(nums[0]) if nums else 0
         
         if target:
-            n_c = st.session_state.box_items[target]
+            n_c = st.session_state.items[target]
             n_others = total_n - n_c
-            if mode == "1":
-                favorable = C(n_c, x) * C(n_others, k - x)
-            else:
-                coeff = C(k, x)
-                favorable = coeff * get_fav(n_c, x) * get_fav(n_others, k - x)
+            if mode == "1": favorable = C(n_c, x) * C(n_others, k - x)
+            else: favorable = C(k, x) * get_fav(n_c, x) * get_fav(n_others, k - x)
 
-    # 3. عرض النتائج
     if total_cases > 0:
         p = favorable / total_cases
         st.balloons()
@@ -115,3 +100,9 @@ if st.button("⚡ احسب الآن", use_container_width=True):
         c2.success(f"**الحالات الكلية:** {total_cases}")
     else:
         st.error("تأكد من إدخال بيانات صحيحة!")
+
+# --- إضافة حقوق الملكية والرمز 67 ---
+st.sidebar.markdown("---") # خط فاصل
+st.sidebar.markdown("<br><br>", unsafe_control_width=True) # مسافة إضافية للأسفل
+st.sidebar.write("© 2026 Developed by Amine | 67") # النص المطلوب
+st.sidebar.caption("All Rights Reserved")
