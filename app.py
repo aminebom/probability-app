@@ -2,12 +2,12 @@ import streamlit as st
 import math
 import google.generativeai as genai
 from PIL import Image
-import json
+import re
 
-# --- 1. الإعدادات والذكاء الاصطناعي ---
+# --- 1. إعدادات الصفحة والذكاء الاصطناعي ---
 st.set_page_config(page_title="ProbMaster Pro 67", page_icon="🎲", layout="wide")
 
-# محاولة الاتصال بـ Gemini
+# محاولة جلب مفتاح Gemini من Secrets
 ai_available = False
 if "GEMINI_API_KEY" in st.secrets:
     try:
@@ -17,7 +17,7 @@ if "GEMINI_API_KEY" in st.secrets:
     except:
         ai_available = False
 
-# --- 2. محرك العمليات الرياضية (بدون brute-force) ---
+# --- 2. محرك الرياضيات الاحترافي ---
 class ProbEngine:
     @staticmethod
     def nCr(n, r):
@@ -35,113 +35,95 @@ class ProbEngine:
         if mode == "على التوالي بدون إرجاع": return ProbEngine.nPr(n, k)
         return n**k  # مع الإرجاع
 
-# --- 3. تصميم الواجهة (UI/UX) ---
+# --- 3. تصميم الواجهة ---
 st.markdown("""
     <style>
     .reportview-container { direction: rtl; }
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #007bff; color: white; }
+    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #2e7d32; color: white; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("🎲 Probability Master Pro | الإصدار الاحترافي 2.0")
+st.caption("Developed by Amine | 67")
 st.markdown("---")
 
-# القائمة الجانبية لإدارة الصندوق
+# --- 4. إدارة الصندوق (Sidebar) ---
 with st.sidebar:
     st.header("📦 إعدادات الصندوق")
+    
+    # حل مشكلة AttributeError: التأكد من تهيئة المخزن
     if 'items' not in st.session_state:
         st.session_state.items = {"حمراء": 5, "خضراء": 3}
-    
-    # إضافة عنصر جديد (لون أو رقم)
-    with st.expander("➕ إضافة عنصر جديد"):
-        new_name = st.text_input("الاسم/الرقم")
+
+    with st.expander("➕ إضافة عنصر جديد (لون/رقم)"):
+        new_name = st.text_input("الاسم")
         new_val = st.number_input("العدد", min_value=1, value=1)
         if st.button("إضافة"):
-            st.session_state.items[new_name] = new_val
-            st.rerun()
+            if new_name:
+                st.session_state.items[new_name] = new_val
+                st.rerun()
 
-    # تعديل العناصر الحالية
     total_n = 0
+    # عرض العناصر مع زر الحذف
     for name, count in list(st.session_state.items.items()):
         col1, col2 = st.columns([3, 1])
-        st.session_state.items[name] = col1.number_input(f"{name}", min_value=0, value=count, key=f"edit_{name}")
+        st.session_state.items[name] = col1.number_input(f"{name}", min_value=0, value=count, key=f"e_{name}")
         total_n += st.session_state.items[name]
-        if col2.button("🗑️", key=f"del_{name}"):
-            del st.session_state.items[name]; st.rerun()
+        if col2.button("🗑️", key=f"d_{name}"):
+            del st.session_state.items[name]
+            st.rerun()
     
     st.divider()
-    st.metric("إجمالي العناصر في الصندوق", total_n)
+    st.metric("إجمالي العناصر", total_n)
 
-# --- 4. قسم الذكاء الاصطناعي (تحليل الصور) ---
-st.subheader("📸 حل تمرين مصور (ذكاء اصطناعي)")
+# --- 5. قسم الذكاء الاصطناعي (حل الصور) ---
+st.subheader("📸 حل تمرين مصور (AI)")
 uploaded_file = st.file_uploader("ارفع صورة التمرين هنا", type=['png', 'jpg', 'jpeg'])
 
-if uploaded_file and ai_available:
-    if st.button("🔍 تحليل وحل الصورة"):
-        with st.spinner("جاري تحليل الصورة بعناية..."):
-            img = Image.open(uploaded_file)
-            prompt = "أنت خبير رياضيات. استخرج المعطيات من الصورة وحل التمرين بالتفصيل باللغة العربية مع ذكر القوانين."
-            response = model.generate_content([prompt, img])
-            st.info("💡 حل الذكاء الاصطناعي:")
-            st.write(response.text)
+if uploaded_file:
+    img = Image.open(uploaded_file)
+    st.image(img, width=400, caption="التمرين المرفوع")
+    if ai_available:
+        if st.button("🪄 حل التمرين بالذكاء الاصطناعي"):
+            with st.spinner("جاري التفكير والتحليل..."):
+                prompt = "أنت خبير رياضيات. حل تمرين الاحتمالات في الصورة بالتفصيل باللغة العربية مع القوانين."
+                response = model.generate_content([prompt, img])
+                st.markdown("### 📝 الحل المقترح:")
+                st.write(response.text)
+    else:
+        st.error("⚠️ مفتاح API غير مفعل في Secrets.")
 
 st.divider()
 
-# --- 5. الحساب اليدوي المطور (بناءً على الصيغ) ---
-st.subheader("🧮 الحساب اليدوي السريع (نتائج فورية)")
-col1, col2 = st.columns(2)
-with col1:
+# --- 6. الحساب اليدوي السريع ---
+st.subheader("🧮 الحساب الرياضي الفوري")
+c1, c2 = st.columns(2)
+with c1:
     k = st.number_input("عدد السحبات (k)", min_value=1, max_value=total_n if total_n > 0 else 1, value=1)
-with col2:
+with c2:
     mode = st.selectbox("نوع السحب", ["في آن واحد", "على التوالي بدون إرجاع", "على التوالي مع الإرجاع"])
 
-question = st.text_input("اكتب سؤالك (مثال: كرتين حمراوين، واحدة خضراء على الاقل، نفس اللون)")
+question = st.text_input("اكتب مطلوبك (مثال: نفس اللون، كرتين حمراوين)")
 
-if st.button("⚡ احسب بالخطوات"):
+if st.button("⚡ احسب الآن"):
     if total_n == 0:
         st.error("❌ الصندوق فارغ!")
     else:
         total_cases = ProbEngine.get_total_cases(total_n, k, mode)
         favorable = 0
-        formula_latex = ""
-        
-        # تنظيف النص لسهولة البحث
         q = question.replace("أ", "ا").replace("إ", "ا")
 
-        # حالة 1: نفس اللون
+        # منطق "نفس اللون"
         if "نفس" in q:
-            for name, n_i in st.session_state.items.items():
-                if n_i >= k:
-                    favorable += ProbEngine.get_total_cases(n_i, k, mode)
-            formula_latex = r"P(A) = \frac{\sum P(n_i, k)}{P(n_{total}, k)}"
-
-        # حالة 2: كرات محددة (مثال: 2 حمراء)
-        else:
-            # هنا نستخدم الذكاء الاصطناعي لتحويل النص إلى أرقام إذا لم نفهم السؤال يدوياً
-            if ai_available:
-                with st.spinner("جاري فهم السؤال..."):
-                    ai_prompt = f"حول السؤال التالي إلى بيانات رقمية: '{q}'. الصندوق يحتوي على {st.session_state.items}. استخرج اسم اللون والعدد المطلوب منه. أرجع النتيجة كـ JSON فقط."
-                    res = model.generate_content(ai_prompt)
-                    try:
-                        # محاكاة بسيطة للتحليل - في الواقع سنستخدم JSON Parser هنا
-                        st.info("تم تحليل السؤال رياضياً بنجاح.")
-                    except: pass
+            for n_i in st.session_state.items.values():
+                favorable += ProbEngine.get_total_cases(n_i, k, mode)
             
-            st.warning("هذه الميزة (التحليل اللغوي الدقيق) تعمل بشكل أفضل عبر قسم الصور حالياً.")
-
-        # عرض النتيجة بـ LaTeX
-        if favorable > 0 or "نفس" in q:
-            st.success(f"الاحتمال هو: {favorable / total_cases:.4f}")
-            st.markdown("### 📝 خطوات الحل:")
-            st.latex(rf"Cases_{{total}} = {total_cases}")
-            st.latex(rf"Cases_{{fav}} = {favorable}")
-            if formula_latex: st.latex(formula_latex)
+            st.success(f"الاحتمال النهائي: {favorable/total_cases:.4f}")
+            st.markdown("### 📝 الخطوات:")
+            st.latex(rf"P(A) = \frac{{Cases_{{fav}}}}{{Cases_{{total}}}} = \frac{{{favorable}}}{{{total_cases}}}")
             st.balloons()
         else:
-            st.error("يرجى كتابة السؤال بشكل أوضح (مثلاً: نفس اللون) أو استخدام قسم الصور للأسئلة المعقدة.")
+            st.info("استخدم قسم الصور للأسئلة المعقدة، أو اكتب 'نفس اللون' للحساب السريع.")
 
-# --- 6. التذييل ---
 st.sidebar.markdown("---")
-st.sidebar.write("### Probability Master Pro")
-st.sidebar.caption("Version 2.0 - Senior Level")
-st.sidebar.write("Developed by Amine | 67")
+st.sidebar.caption("Probability Master Pro v2.0")
