@@ -4,14 +4,12 @@ import re
 from itertools import combinations, permutations, product
 from fractions import Fraction
 
-# --- 1. الحماية القصوى: تهيئة الحالة قبل أي شيء آخر ---
+# --- 1. إصلاح أخطاء AttributeError: تهيئة الحالة فوراً ---
 if 'items' not in st.session_state:
     st.session_state['items'] = {"حمراء": 5, "خضراء": 3, "صفراء": 2}
-if 'history' not in st.session_state:
-    st.session_state['history'] = []
 
-# --- 2. إعدادات الصفحة والتصميم ---
-st.set_page_config(page_title="ProbMaster Pro 6.0", page_icon="🎲", layout="wide")
+# --- 2. إعدادات الصفحة ---
+st.set_page_config(page_title="ProbMaster Pro 7.0", page_icon="🎲", layout="wide")
 
 st.markdown("""
     <style>
@@ -26,7 +24,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. المحرك الرياضي الذكي ---
+# --- 3. المحرك الرياضي ---
 class MathEngine:
     @staticmethod
     def get_space(n, k, mode):
@@ -35,30 +33,29 @@ class MathEngine:
         return n ** k
 
     @staticmethod
-    def get_permutations_multiset(k, r_list):
+    def get_ordering_factor(k, r_list):
         denom = 1
         for r in r_list: denom *= math.factorial(r)
         return math.factorial(k) // denom
 
-# --- 4. واجهة التحكم الجانبية (Sidebar) ---
+# --- 4. Sidebar: إدارة الصندوق (معالجة أخطاء الحذف) ---
 with st.sidebar:
-    st.title("📦 محتوى الصندوق")
-    
+    st.header("📦 محتوى الصندوق")
     with st.expander("✨ إضافة عنصر جديد"):
-        new_item = st.text_input("اسم الكرة/الرقم")
-        new_count = st.number_input("العدد", min_value=1, value=1)
+        new_name = st.text_input("الاسم/الرقم")
+        new_val = st.number_input("العدد", 1, 100, 1)
         if st.button("إضافة"):
-            if new_item:
-                st.session_state['items'][new_item] = new_count
+            if new_name:
+                st.session_state['items'][new_name] = new_val
                 st.rerun()
 
-    # عرض العناصر مع ميزة الحذف الآمن
     st.write("---")
+    # تحويل القيم إلى قائمة محلية لتجنب RuntimeError عند الحذف
     current_items = st.session_state['items']
     for name in list(current_items.keys()):
         c1, c2 = st.columns([3, 1])
-        current_items[name] = c1.number_input(f"{name}", 0, 100, current_items[name], key=f"in_{name}")
-        if c2.button("🗑️", key=f"del_{name}"):
+        current_items[name] = c1.number_input(f"{name}", 0, 100, current_items[name], key=f"inp_{name}")
+        if c2.button("🗑️", key=f"btn_{name}"):
             del st.session_state['items'][name]
             st.rerun()
             
@@ -66,80 +63,75 @@ with st.sidebar:
     st.metric("إجمالي العناصر (n)", total_n)
 
 # --- 5. الواجهة الرئيسية ---
-st.title("🎲 Probability Master Pro | الإصدار 6.0")
-st.info("تم إصلاح كافة أخطاء AttributeError السابقة. التطبيق الآن جاهز للعمل بكفاءة.")
+st.title("🎲 Probability Master Pro | 7.0")
+st.write(f"Developed by Amine | 67")
 
-tab1, tab2 = st.tabs(["📝 الحساب اليدوي", "📸 حل من صورة"])
+tab1, tab2 = st.tabs(["📊 الحساب اليدوي", "ℹ️ تعليمات"])
 
 with tab1:
     col_k, col_m = st.columns(2)
-    with col_k: k = st.number_input("عدد السحبات (k)", 1, total_n if total_n > 0 else 1, 3)
+    with col_k: k_pulls = st.number_input("عدد السحبات (k)", 1, total_n if total_n > 0 else 1, 3)
     with col_m: mode = st.selectbox("نوع السحب", ["في آن واحد", "على التوالي بدون إرجاع", "على التوالي مع الإرجاع"])
     
-    user_q = st.text_input("اكتب مطلوبك (مثلاً: كرتين خضراء، مختلفة الألوان، المجموع 5...)")
+    query = st.text_input("💬 اكتب مطلوبك (مثال: كرتين حمراء، مختلفة الألوان، نفس اللون)")
 
-    if st.button("⚡ احسب الآن"):
-        if total_n < k and mode != "على التوالي مع الإرجاع":
-            st.error("خطأ: عدد السحبات أكبر من عدد الكرات المتوفرة!")
+    if st.button("🚀 احسب الآن"):
+        if total_n == 0:
+            st.error("الصندوق فارغ!")
+        elif total_n < k_pulls and mode != "على التوالي مع الإرجاع":
+            st.error("عدد الكرات غير كافٍ لهذا النوع من السحب.")
         else:
-            # تنظيف السؤال
-            q = user_q.lower().replace("أ","ا").replace("إ","ا").replace("ة","ه").replace("ى","ي")
-            n = total_n
-            total_space = MathEngine.get_space(n, k, mode)
+            # تنظيف النص
+            q = query.lower().replace("أ","ا").replace("إ","ا").replace("ة","ه").replace("ى","ي")
+            total_space = MathEngine.get_space(total_n, k_pulls, mode)
             fav = 0
             
-            # منطق الحل
-            if "نفس" in q or "متماثل" in q:
+            # أ. نفس اللون
+            if any(w in q for w in ["نفس", "متماثل"]):
                 for count in current_items.values():
-                    fav += MathEngine.get_space(count, k, mode)
+                    fav += MathEngine.get_space(count, k_pulls, mode)
             
+            # ب. مختلفة الألوان مثنى مثنى
             elif "مختلف" in q:
-                for combo in combinations(current_items.values(), k):
+                for combo in combinations(current_items.values(), k_pulls):
                     ways = math.prod(combo)
-                    if mode != "في آن واحد": ways *= math.factorial(k)
+                    if mode != "في آن واحد": ways *= math.factorial(k_pulls)
                     fav += ways
             
+            # ج. كرات محددة (حمراء، خضراء...)
             else:
-                # البحث عن اللون المستهدف والعدد
                 target = next((name for name in current_items if name in q), list(current_items.keys())[0])
-                n_target = current_items[target]
-                n_others = n - n_target
+                n_i = current_items[target]
+                n_o = total_n - n_i
                 
-                num_find = re.findall(r'\d+', q)
-                x = int(num_find[0]) if num_match := num_find else 1
+                # استخراج الرقم المطلوب (مثلاً: 2 حمراء)
+                nums = re.findall(r'\d+', q)
+                # إصلاح خطأ SyntaxError الظاهر في الصورة 7
+                if nums:
+                    x = int(nums[0])
+                else:
+                    x = 1
                 
-                # على الأقل / على الأكثر / بالضبط
-                if "اقل" in q: rng = range(x, k + 1)
+                # النطاق (بالضبط، على الأقل، على الأكثر)
+                if "اقل" in q: rng = range(x, k_pulls + 1)
                 elif "اكثر" in q: rng = range(0, x + 1)
                 else: rng = [x]
                 
                 for r in rng:
-                    ways = math.comb(n_target, r) * math.comb(n_others, k - r)
+                    ways = math.comb(n_i, r) * math.comb(n_o, k_pulls - r)
                     if mode != "في آن واحد":
-                        ways *= MathEngine.get_permutations_multiset(k, [r, k - r])
+                        ways *= MathEngine.get_ordering_factor(k_pulls, [r, k_pulls - r])
                     fav += ways
 
-            # عرض النتيجة
+            # عرض النتائج
             if total_space > 0:
                 p = fav / total_space
                 frac = Fraction(fav, total_space).limit_denominator()
                 st.markdown(f"""
                 <div class="result-box">
-                    <h2>🎯 النتيجة: {p:.5f}</h2>
-                    <h3>الكسر: {frac.numerator} / {frac.denominator}</h3>
-                    <p>نسبة النجاح: {p*100:.2f}%</p>
+                    <h3>🎯 النتيجة النهائية: {p:.5f}</h3>
+                    <h4>الكسر المبسط: {frac.numerator} / {frac.denominator}</h4>
                 </div>
                 """, unsafe_allow_html=True)
                 st.latex(rf"P(A) = \frac{{{fav}}}{{{total_space}}} = {p:.4f}")
                 st.balloons()
-
-with tab2:
-    st.write("📷 قم برفع صورة التمرين وسيقوم النظام بتحليله (تأكد من وضوح النص)")
-    uploaded_file = st.file_uploader("اختر صورة التمرين", type=["png", "jpg", "jpeg"])
-    if uploaded_file:
-        st.image(uploaded_file, caption="الصورة المرفوعة", width=400)
-        st.warning("⚠️ ميزة التحليل البصري تتطلب مفتاح API نشط. حالياً يمكنك إدخال البيانات يدوياً بناءً على ما تراه في الصورة.")
-
-# --- 6. التذييل ---
-st.write("---")
-st.caption("Developed with ❤️ by Amine | 2026")
