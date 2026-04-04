@@ -38,7 +38,6 @@ class ProbEngine:
 st.markdown("""
     <style>
     .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #1e88e5; color: white; font-weight: bold; }
-    .main { direction: rtl; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -50,27 +49,29 @@ st.markdown("---")
 with st.sidebar:
     st.header("📦 إعدادات الصندوق")
     
-    # 🛡️ نظام الحماية: التأكد من وجود القاموس وتهيئته
-    if 'items' not in st.session_state or not isinstance(st.session_state.items, dict):
-        st.session_state.items = {"حمراء": 5, "خضراء": 3}
+    # 🛡️ الحماية المطلقة: التأكد من وجود القاموس قبل أي عملية أخرى
+    if 'items' not in st.session_state:
+        st.session_state['items'] = {"حمراء": 5, "خضراء": 3}
 
     with st.expander("➕ إضافة عنصر جديد"):
         new_name = st.text_input("الاسم")
         new_val = st.number_input("العدد", min_value=1, value=1)
         if st.button("إضافة"):
             if new_name:
-                st.session_state.items[new_name] = new_val
+                st.session_state['items'][new_name] = new_val
                 st.rerun()
 
     total_n = 0
-    # عرض العناصر مع معالجة الأخطاء
-    temp_items = list(st.session_state.items.items())
-    for name, count in temp_items:
+    # الوصول الآمن للعناصر لمنع AttributeError
+    current_items = st.session_state.get('items', {})
+    
+    for name in list(current_items.keys()):
         col1, col2 = st.columns([3, 1])
-        st.session_state.items[name] = col1.number_input(f"{name}", min_value=0, value=count, key=f"edit_{name}")
-        total_n += st.session_state.items[name]
+        # تحديث القيمة مباشرة في الـ session_state
+        st.session_state['items'][name] = col1.number_input(f"{name}", min_value=0, value=current_items[name], key=f"edit_{name}")
+        total_n += st.session_state['items'][name]
         if col2.button("🗑️", key=f"del_{name}"):
-            del st.session_state.items[name]
+            del st.session_state['items'][name]
             st.rerun()
     
     st.divider()
@@ -85,9 +86,9 @@ if uploaded_file and ai_available:
     st.image(img, width=400)
     if st.button("🪄 حل التمرين"):
         with st.spinner("جاري التحليل..."):
-            prompt = "حل هذا التمرين بالتفصيل باللغة العربية مع القوانين."
+            prompt = "حل هذا التمرين بالتفصيل باللغة العربية مع القوانين المستخدمة."
             response = model.generate_content([prompt, img])
-            st.write(response.text)
+            st.markdown(f"### 📝 الحل المقترح:\n{response.text}")
 
 st.divider()
 
@@ -95,25 +96,27 @@ st.divider()
 st.subheader("🧮 الحساب الفوري")
 c1, c2 = st.columns(2)
 with c1:
-    k = st.number_input("عدد السحبات (k)", min_value=1, max_value=total_n if total_n > 0 else 1, value=1)
+    k_input = st.number_input("عدد السحبات (k)", min_value=1, max_value=total_n if total_n > 0 else 1, value=1)
 with c2:
-    mode = st.selectbox("نوع السحب", ["في آن واحد", "على التوالي بدون إرجاع", "على التوالي مع الإرجاع"])
+    mode_input = st.selectbox("نوع السحب", ["في آن واحد", "على التوالي بدون إرجاع", "على التوالي مع الإرجاع"])
 
-question = st.text_input("اكتب مطلوبك (مثلاً: نفس اللون)")
+question_input = st.text_input("اكتب مطلوبك (مثلاً: نفس اللون)")
 
 if st.button("⚡ احسب"):
     if total_n == 0:
         st.error("الصندوق فارغ!")
     else:
-        total_cases = ProbEngine.get_total_cases(total_n, k, mode)
+        total_cases = ProbEngine.get_total_cases(total_n, k_input, mode_input)
         favorable = 0
-        if "نفس" in question:
-            for n_i in st.session_state.items.values():
-                favorable += ProbEngine.get_total_cases(n_i, k, mode)
+        if "نفس" in question_input:
+            for n_i in st.session_state['items'].values():
+                favorable += ProbEngine.get_total_cases(n_i, k_input, mode_input)
             
             st.success(f"الاحتمال: {favorable/total_cases:.4f}")
             st.latex(rf"P(A) = \frac{{{favorable}}}{{{total_cases}}}")
             st.balloons()
+        else:
+            st.info("استخدم قسم الصور للتمارين المعقدة.")
 
 st.sidebar.markdown("---")
-st.sidebar.caption("© 2067 Developed by Amine | 67")
+st.sidebar.caption("© 2026 Developed by Amine | 67")
